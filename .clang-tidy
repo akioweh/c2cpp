@@ -1,0 +1,15 @@
+Checks: >
+  clang-analyzer-*,
+  modernize-*,
+  performance-*,
+  readability-*,
+  bugprone-*,
+  -readability-identifier-naming,
+  -readability-identifier-length,
+  -readability-braces-around-statements,
+  -readability-isolate-declaration,
+  -readability-magic-numbers,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -bugprone-exception-escape
+
+WarningsAsErrors: ""
