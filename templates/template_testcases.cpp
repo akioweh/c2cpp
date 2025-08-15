@@ -28,13 +28,17 @@ vector<T> reads() {
 }
 
 
-template<size_t N, typename T = int>
+template<size_t N, typename T = int, bool check_count = true>
 array<T, N> reads() {
-    array<T, N> arr{};
+    array<T, N> arr;
     istringstream iss(read());
     auto r = ranges::copy(views::istream<T>(iss) | views::take(N), arr.begin());
-    if (r.out != arr.end()) {
-        throw runtime_error("not enough elements");
+    if (check_count) {
+        if (r.out != arr.end())
+            throw runtime_error("not enough elements");
+        T _;
+        if (iss >> _ || !iss.eof())
+            throw runtime_error("too many elements");
     }
     return arr;
 }
