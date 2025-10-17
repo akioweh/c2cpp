@@ -146,12 +146,12 @@ ll push_relabel_bfs(const vector<vector<int>> &graph, const vector<vector<int>> 
     const auto relabel_all = [&] {
         ranges::fill(height, N);
         height[t] = 0;
-        for (auto &s : H)
-            s.clear();
+        for (auto &st : H)
+            st.clear();
 
         auto q = queue<int>({t});
         while (!q.empty()) {
-            auto u = q.front();
+            const auto u = q.front();
             q.pop();
             max_h = height[u];
             for (const auto v : graph[u]) {
@@ -168,7 +168,7 @@ ll push_relabel_bfs(const vector<vector<int>> &graph, const vector<vector<int>> 
     // initialize pre-flow
     height[s] = N;
     excess[s] = numeric_limits<ll>::max();
-    // relabel_all();
+    relabel_all();
     for (const auto v : graph[s])
         push(s, v);
 
