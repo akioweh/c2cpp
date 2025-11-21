@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <iostream>
-#include <ranges>
+#include <numeric>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -139,7 +139,7 @@ constexpr array<bool, N / 2> s_primes() {
 
 
 template<int N, array<bool, N / 2> Sieve = s_primes<N>(), int C = ranges::count(Sieve, true)>
-consteval auto c_primes() {
+constexpr auto c_primes() {
     array<int, C> res{};
     res[0] = 2;
     for (auto i = 3, j = 1; i < N; i += 2) {
@@ -150,11 +150,24 @@ consteval auto c_primes() {
 }
 
 
-constexpr auto primes_ = c_primes<100001>();
+template<int N, size_t C>
+constexpr array<int, N> s_phi(array<int, C> _primes) { // an array of primes is required
+    array<int, N> res{};
+    iota(res.begin(), res.end(), 0);
+    for (const auto p : _primes) {
+        for (auto i = 1ll; i * p < N; ++i)
+            res[i * p] -= res[i * p] / p;
+    }
+    return res;
+}
 
 
-int main(int argc, char *argv[]) {
-    for (auto v : primes_) {
+const auto primes_ = c_primes<100001>();
+const auto phi_ = s_phi<100001>(primes_);
+
+
+int main() {
+    for (auto v : phi_) {
         cout << v << " ";
     }
     cout << endl;
