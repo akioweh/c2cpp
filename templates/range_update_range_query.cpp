@@ -2,7 +2,7 @@
 #include <cassert>
 #include <concepts>
 #include <functional>
-#include <numeric>
+#include <iterator>
 #include <ranges>
 #include <type_traits>
 #include <vector>
@@ -18,38 +18,37 @@ concept upd_func = is_invocable_r_v<void, F, T &, T, size_t>;
 
 
 template<typename... Ts>
-auto nsum(const Ts &... a) {
+auto nsum(const Ts &...a) {
     return (a + ...);
 }
 
 
-template<
-    typename T,
-    size_t N,
-    T Default = 0,
-    binary_func<T, T, T> auto Func = [](T a, T b) { return max(a, b); },  // default: max
-    T CacheDefault = 0,
-    upd_func<T> auto Upd = [](T &a, T b, size_t /*len*/) { a += b; }  // default: addition  (&T, T, int) -> void
->
+template<typename T,
+         size_t N,
+         T Default = 0,
+         binary_func<T, T, T> auto Func = [](T a, T b) { return max(a, b); }, // default: max
+         T CacheDefault = 0,
+         upd_func<T> auto Upd = [](T &a, T b, size_t /*len*/) { a += b; } // default: addition  (&T, T, int) -> void
+         >
 struct RURQ {
     array<T, 2 * N> data;
     array<T, N> cache;
 
     // construct from range/iterator
     template<ranges::input_range R>
-        requires same_as<ranges::range_value_t<R>, T>
+        requires(same_as<ranges::range_value_t<R>, T> && ranges::sized_range<R>)
     explicit RURQ(const R &&seq) {
         assert(seq.size() == N);
         ranges::fill(cache, CacheDefault);
         ranges::copy(seq, data.begin() + N);
-        for (auto i = N; i-- > 0;)
+        for (auto i = N; i--;)
             data[i] = Func(data[2 * i], data[2 * i + 1]);
     }
 
-
     // pushes (internal) node i's updates to its direct children
     void push1(const size_t i) {
-        if (!cache[i]) return;
+        if (!cache[i])
+            return;
         cache[i] = CacheDefault;
         Upd(data[2 * i], cache[i], 1);
         Upd(data[2 * i + 1], cache[i], 1);
@@ -59,21 +58,17 @@ struct RURQ {
         }
     }
 
-
     // propagates all updates on path from root to node i
     void push(const size_t i) {
-        for (auto s = bit_width(i); s > 0; s--) {
+        for (auto s = bit_width(i); s > 0; s--)
             push1(i >> s);
-        }
     }
-
 
     // full propagation (push all lazy to leaves)
     void propagate() {
         for (auto i = 1; i < N; i++)
             push(i);
     }
-
 
     // recomputes internal nodes on path from i to root
     void pull(size_t i) {
@@ -83,19 +78,22 @@ struct RURQ {
         }
     }
 
-
     // collects the exact nodes representing the range [l, r), in order
     static vector<size_t> collect(size_t l = 0, size_t r = N, const bool reverse = false) {
         vector<size_t> nodes_l, nodes_r;
         for (l += N, r += N; l < r; l >>= 1, r >>= 1) {
-            if (l & 1) nodes_l.push_back(l++);
-            if (r & 1) nodes_r.push_back(--r);
+            if (l & 1)
+                nodes_l.push_back(l++);
+            if (r & 1)
+                nodes_r.push_back(--r);
         }
-        if (reverse) swap(nodes_l, nodes_r);
-        nodes_l.insert(nodes_l.end(), nodes_r.rbegin(), nodes_r.rend());
+        if (reverse)
+            swap(nodes_l, nodes_r);
+        // nodes_l.insert(nodes_l.end(), nodes_r.rbegin(), nodes_r.rend());
+        nodes_l.reserve(nodes_l.size() + nodes_r.size());
+        ranges::copy(nodes_r | views::reverse, back_inserter(nodes_l));
         return nodes_l;
     }
-
 
     void set(const size_t i, const T val) {
         push(i + N);
@@ -103,35 +101,25 @@ struct RURQ {
         pull(i + N);
     }
 
-
-    void update(const size_t l = 0, const size_t r = N, T val) {
+    void update(const size_t l, const size_t r, T val) {
         for (auto i : collect(l, r)) {
             Upd(data[i], val, 1);
-            if (i < N) cache[i] += val;
+            if (i < N)
+                cache[i] += val;
         }
         pull(l + N);
         pull(r + N - 1);
     }
 
-
     T query(const size_t l = 0, const size_t r = N) {
         push(l + N);
         push(r + N - 1);
-        return ranges::fold_left(
-            collect(l, r) | views::transform([this](const auto i) { return data[i]; }),
-            Default,
-            Func
-        );
+        return ranges::fold_left(collect(l, r) | views::transform([this](const auto i) { return data[i]; }), Default,
+                                 Func);
     }
 
-
     size_t bound(
-        const T value,
-        const size_t l,
-        const size_t r,
-        const binary_func<T, T, bool> auto cmp,
-        const bool reverse
-    ) {
+            const T value, const size_t l, const size_t r, const binary_func<T, T, bool> auto cmp, const bool reverse) {
         push(l + N);
         push(r + N - 1);
         for (auto i : collect(l, r, reverse)) {
@@ -150,11 +138,9 @@ struct RURQ {
         return reverse ? l : r;
     }
 
-
     size_t lower_bound(const T value, const size_t l = 0, const size_t r = N) {
         return bound(value, l, r, less{}, false);
     }
-
 
     size_t upper_bound(const T value, const size_t l = 0, const size_t r = N) {
         return bound(value, l, r, less_equal{}, false);
