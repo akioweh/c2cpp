@@ -106,8 +106,8 @@ struct RURQ {
     }
 
     void update(const size_t l, const size_t r, T val) {
-        push(l + N); // necessary if Upd is not commutative
-        push(r + N - 1);
+        // push(l + N); // necessary if Upd is not commutative
+        // push(r + N - 1);
         for (const auto i : collect(l, r)) {
             Upd(data[i], val, node_size(i));
             if (i < N)
