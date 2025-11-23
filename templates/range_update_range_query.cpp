@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <array>
 #include <bit>
 #include <cassert>
 #include <concepts>
@@ -13,41 +12,41 @@
 
 using namespace std;
 
-template<typename U, typename V, typename R, typename F>
+template<typename F, typename U, typename V, typename R>
 concept binary_func = is_invocable_r_v<R, F, U, V>;
 
-template<typename T, typename F>
-concept upd_func = is_invocable_r_v<void, F, T &, T, size_t>;
+template<typename F, typename T, typename U>
+concept upd_func = is_invocable_r_v<void, F, T &, const U &, size_t>;
 
 
-template<size_t N,
-         typename T = long long,
+template<typename T = long long, // output/base type
+         typename U = T, // "update" type
          T Default = numeric_limits<T>::min(), // identity for query (e.g., 0 for sum, -INF for max)
          binary_func<T, T, T> auto Func = [](T a, T b) { return max(a, b); }, // fold function (default: max)
-         T CacheDefault = T{}, // identity for lazy (default: 0)
-         upd_func<T> auto Upd = [](T &a, T b, size_t /*len*/) { a += b; }, // update function (default: add)
-         size_t H = bit_width(N)>
+         U CacheDefault = U{}, // identity for lazy (default: 0)
+         upd_func<T, U> auto Upd = [](T &a, U &b, size_t /*len*/) { a += b; } // update function (def: add)
+         >
 struct RURQ {
-    array<T, 2 * N> data;
-    array<T, N> cache;
+    size_t N;
+    size_t H;
+    vector<T> data;
+    vector<U> cache;
 
-    RURQ() {
-        ranges::fill(data, Default);
-        ranges::fill(cache, CacheDefault);
-    }
+    RURQ(const size_t n) : N(n), H(bit_width(n)), data(2 * n, Default), cache(n, CacheDefault) {}
 
     // construct from range/iterator
     template<ranges::input_range R>
         requires(same_as<ranges::range_value_t<R>, T> && ranges::sized_range<R>)
-    explicit RURQ(const R &&seq) {
-        assert(seq.size() == N);
-        ranges::fill(cache, CacheDefault);
+    explicit RURQ(R &&seq) :
+        N(ranges::size(seq)), H(bit_width(ranges::size(seq))), cache(ranges::size(seq), CacheDefault) {
+        data.resize(2 * N);
         ranges::copy(seq, data.begin() + N);
         for (auto i = N; i--;)
             data[i] = Func(data[2 * i], data[2 * i + 1]);
     }
 
-    static size_t node_size(const size_t _i) {
+    // calculates the length of node
+    [[nodiscard]] size_t node_size(const size_t _i) const {
         if (_i >= N)
             return 1ull;
         const auto s = H - bit_width(_i);
@@ -55,7 +54,7 @@ struct RURQ {
     }
 
     // collects the exact nodes representing the range [l, r), in order
-    static vector<size_t> collect(size_t l = 0, size_t r = N, const bool reverse = false) {
+    [[nodiscard]] vector<size_t> collect(size_t l, size_t r, const bool reverse = false) const {
         vector<size_t> nodes_l, nodes_r;
         for (l += N, r += N; l < r; l >>= 1, r >>= 1) {
             if (l & 1)
@@ -105,9 +104,9 @@ struct RURQ {
         pull(i + N);
     }
 
-    void update(const size_t l, const size_t r, T val) {
-        // push(l + N); // necessary if Upd is not commutative
-        // push(r + N - 1);
+    void update(const size_t l, const size_t r, U val) {
+        push(l + N); // necessary if Upd is not commutative
+        push(r + N - 1);
         for (const auto i : collect(l, r)) {
             Upd(data[i], val, node_size(i));
             if (i < N)
@@ -117,7 +116,7 @@ struct RURQ {
         pull(r + N - 1);
     }
 
-    T query(const size_t l = 0, const size_t r = N) {
+    T query(const size_t l, const size_t r) {
         push(l + N);
         push(r + N - 1);
         return ranges::fold_left(collect(l, r) | views::transform([this](const auto i) { return data[i]; }), Default,
@@ -143,7 +142,7 @@ struct RURQ {
         return r; // not found
     }
 
-    size_t lower_bound(const T value, const size_t l = 0, const size_t r = N) {
+    size_t lower_bound(const T value, const size_t l, const size_t r) {
         return find(l, r, [&](const T &v) { return v >= value; }, false);
     }
 };
