@@ -9,8 +9,7 @@ using ll = long long;
 template<int MOD>
     requires(MOD > 0)
 struct Mint {
-    // invariant: v always fits in an int (as MOD fits in int)
-    ll v;
+    int v;
 
     constexpr Mint() noexcept = default; // v = 0
     constexpr Mint(const ll x) noexcept : v(norm(x)) {}
@@ -41,7 +40,7 @@ struct Mint {
 
 
     constexpr Mint &operator*=(const Mint rhs) noexcept {
-        v = static_cast<int>(v * rhs.v % MOD);
+        v = static_cast<ll>(v) * rhs.v % MOD;
         return *this;
     }
 
