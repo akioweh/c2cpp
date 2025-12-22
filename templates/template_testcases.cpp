@@ -54,6 +54,7 @@ void solve() {
 int main() {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
+    cin.exceptions(istream::failbit);
     auto [t] = reads<1>();
     while (t--)
         solve();
