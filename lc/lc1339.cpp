@@ -1,5 +1,5 @@
+#pragma GCC optimize("Ofast")
 #include <bits/stdc++.h>
-#include <ranges>
 
 using namespace std;
 
@@ -21,21 +21,21 @@ constexpr int MOD = 1e9 + 7;
 class Solution {
 public:
     int maxProduct(TreeNode *root) {
-        auto st_sum = unordered_map<void *, int>();
+        auto sums = vector<int>();
 
-        const function<int(TreeNode *)> dfs = [&](TreeNode *u) {
+        const auto dfs = [&](this auto &&self, TreeNode *u) {
             if (!u)
                 return 0;
             auto res = u->val;
-            res += dfs(u->left);
-            res += dfs(u->right);
-            st_sum[u] = res;
+            res += self(u->left);
+            res += self(u->right);
+            sums.push_back(res);
             return res;
         };
 
         dfs(root);
-        const auto tot = st_sum[root];
-        auto rn = views::values(st_sum) | views::transform([tot](const auto v) { return 1ll * v * (tot - v); });
+        const auto tot = sums.back();
+        auto rn = sums | views::transform([tot](const auto v) { return 1ll * v * (tot - v); });
         return *ranges::max_element(rn) % MOD;
     }
 };
